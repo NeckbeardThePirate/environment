@@ -51,34 +51,86 @@ for (let i = 0; i < map.length; i++) {
   }
 }
 
-// Phaser game configuration
 let config = {
     type: Phaser.AUTO,
     width: 800,
     height: 800,
     scene: {
         preload: preload,
-        create: create
-    }
+        create: create,
+        update: update
+    },
+    physics: {
+        default: 'arcade',
+        arcade: {
+            gravity: { y: 0 },
+            debug: false 
+        }
+    },
 };
 
-// Create the Phaser game
 let game = new Phaser.Game(config);
-
+let cowGroup;
+let cows = 0;
+let gameOver = false;
 function preload() {
-    // Preload your images
     this.load.image('water', 'assets/water.png');
     this.load.image('grass', 'assets/grass.png');
     this.load.image('thick_grass', 'assets/thick_grass.png');
+    this.load.spritesheet('cow', 'assets/1cow.png', { frameWidth: 32, frameHeight: 32 })
 }
 
 function create() {
-    // Render the map in Phaser
     for (let i = 0; i < map.length; i++) {
         for (let j = 0; j < map[i].length; j++) {
-            // Add an image for each cell
             let image = this.add.image(i * 8, j * 8, map[i][j]);
             image.setOrigin(0, 0);
         }
+    }
+    this.physics.world.gravity.y = 0;
+    this.physics.world.setBounds(0, 0, 800, 600);
+    cowGroup = this.physics.add.group();
+    createCow(`${cows++}`, 100, 100);
+    createCow(`${cows++}`, 200, 200);
+}
+
+function createCow(id, x, y) {
+    const cow = cowGroup.create(x, y, 'cow');
+
+    cow.setCollideWorldBounds(true);
+    cow.cowId = id;
+    cow.food = 10;
+}
+
+function killCow(id) {
+    const cowToKill = cowGroup.getFirst(function (cow) {
+        return cow.cowId === id;
+    }, this)
+    if (cowToKill) {
+        console.log(`killing cow with id: ${id}`)
+        cowToKill.disableBody(true, true)
+        cowToKill.destroy(true);
+        cowGroup.remove(cowToKill, true);
+        cowToKill.setActive(false)
+        console.log(`killed cow with id: ${id}`)
+    }
+}
+
+
+function update() {
+
+    if (gameOver) {
+        return;
+    }
+
+    cowGroup.children.iterate(function(cow) {
+        cow.food--;
+        if (cow.food <= 0) {
+            killCow(cow.cowId)
+        }
+    })
+    if (cowGroup.countActive(false) === 0) {
+        gameOver = true;
+        console.log("Game Over!");
     }
 }
