@@ -1,0 +1,40 @@
+{
+    "width": 10,
+    "height": 10,
+    "tilewidth": 32,
+    "tileheight": 32,
+    "layers": [
+      {
+        "type": "tilelayer",
+        "name": "GroundLayer",
+        "width": 10,
+        "height": 10,
+        "data": [
+          1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+          1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+          1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+          1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+          1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+          1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+          1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+          1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+          1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+          1, 1, 1, 1, 1, 1, 1, 1, 1, 1
+        ]
+      }
+    ],
+    "tilesets": [
+      {
+        "firstgid": 1,
+        "image": "assets/water.png",
+        "imageheight": 32,
+        "imagewidth": 32,
+        "margin": 0,
+        "name": "tiles",
+        "spacing": 0,
+        "tilecount": 1,
+        "tileheight": 32,
+        "tilewidth": 32
+      }
+    ]
+  }
