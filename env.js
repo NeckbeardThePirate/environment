@@ -192,7 +192,7 @@ let updateInterval = 25000 / 1;
 let cowGroup;
 let cows = 0;
 let gameOver = false;
-let initialCows = 12;
+let initialCows = 1;
 function preload() {
     this.load.image('water', 'assets/water.png');
     this.load.image('grass', 'assets/grass.png');
@@ -255,6 +255,8 @@ function createCow(id, x, y) {
     cow.wanderDirection = 0;
     cow.waterHeading = [];
     cow.waterPicked = false;
+    cow.closestWater = [];
+    cow.currentDistance = 0;
 }
 
 function killCow(cow, causeOfDeath) {
@@ -286,6 +288,23 @@ function moveCowDown(cow) {
     cow.water-= 3
 }
 
+function findDistance(startX, startY, endX, endY) {
+    let distanceY;
+    let distanceX;
+    if (endX < startX) {
+        distanceX = startX - endX;
+    } else if (startX < endX) {
+        distanceX = endX - startX
+    }
+    if (endY < startY) {
+        distanceY = startY - endY;
+    } else if (startY < endY) {
+        distanceY = endY - startY
+    }
+
+    return distanceY + distanceX
+}
+
 function cowLookForWater(cow) {
     const searchRadius = 100;
 
@@ -303,11 +322,28 @@ function cowLookForWater(cow) {
                 const waterY = (targetY*100) + 50
                 cow.knownWater = [...cow.knownWater, [waterX, waterY]]
                 // return;
-                // console.log(cow.knownWater)
+                console.log(cow.closestWater)
+                if (cow.closestWater.length === 0) {
+                    console.log('firstClosest')
+                    cow.closestWater[0] = waterX;
+                    cow.closestWater[1] = waterY;
+                } else {
+                    let currentDistance = findDistance(cow.x, cow.y, waterX, waterY)
+                    let activeDistance = findDistance(cow.x, cow.y, cow.closestWater[0], cow.closestWater[1])
+                    console.log(currentDistance, activeDistance)
+                    if (currentDistance < activeDistance) {
+                        cow.closestWater[0] = waterX;
+                        cow.closestWater[1] = waterY;
+                        console.log('new closest water: ', cow.closestWater[0], cow.closestWater[1])
+                    }
+                }
             }
         }
     }
+
 }
+
+
 
 function cowLookForFood(cow) {
     const searchRadius = 10;
@@ -344,7 +380,7 @@ function cowPickWaterSource(cow) {
     while (cow.knownWater.length < waterArrSpot) {
         waterArrSpot -= cow.knownWater.length
     }
-    cow.waterHeading = [cow.knownWater[waterArrSpot][0],cow.knownWater[waterArrSpot][1]]
+    cow.waterHeading = [cow.closestWater[0],cow.closestWater[1]]
     console.log(cow.waterHeading)
     console.log(waterArrSpot)
 }
