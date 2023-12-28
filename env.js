@@ -22,7 +22,7 @@ let waterLengthCount = 0;
 let waterWidthCount = 0;
 // const maxCows = 40;
 let waterAvailable = 10000;
-let foodAvailable = 10000;
+let foodAvailable = 18000;
 //test
 // for (let i = 0; i < map.length; i+=10) {
 //   for (let j = 0; j < map[i].length; j+=10) {
@@ -192,7 +192,8 @@ let updateInterval = 25000 / 1;
 let cowGroup;
 let cows = 0;
 let gameOver = false;
-let initialCows = 1;
+let initialCows = 12;
+let mapGroup;
 function preload() {
     this.load.image('water', 'assets/water.png');
     this.load.image('grass', 'assets/grass.png');
@@ -229,6 +230,9 @@ function create() {
         // console.log('grass found!', startingLocationX, startingLocationY)
         createCow(`${cows++}`, startingLocationX*100, startingLocationY*100);
     }
+
+    mapGroup = this.add.group();
+    
 }
 
 function createCow(id, x, y) {
@@ -236,9 +240,9 @@ function createCow(id, x, y) {
     // console.log(x, y)
     cow.setCollideWorldBounds(true);
     cow.cowId = id;
-    cow.food = 20000;
+    cow.food = 8000;
     cow.age = 0;
-    cow.water = 8000;
+    cow.water = 20000;
     cow.drinking = false;
     cow.movingToWater = false;
     cow.knownWater = [];
@@ -255,6 +259,8 @@ function createCow(id, x, y) {
     cow.wanderDirection = 0;
     cow.waterHeading = [];
     cow.waterPicked = false;
+    cow.foodHeading = [];
+    cow.foodPicked = false;
     cow.closestWater = [];
     cow.currentDistance = 0;
 }
@@ -356,11 +362,10 @@ function cowLookForFood(cow) {
 
             if (isFoodSquare(map, targetX, targetY)) {
                 cow.movingToFood = true;
-                // console.log(`Cow ${cow.cowId} found food at (${targetX}, ${targetY})!`);
                 const foodX = (targetX*100) + 50
                 const foodY = (targetY*100) + 50
                 cow.knownFood = [...cow.knownFood, [foodX, foodY]]
-                return
+                // return
             }
         }
     }
@@ -380,17 +385,29 @@ function cowPickWaterSource(cow) {
     while (cow.knownWater.length < waterArrSpot) {
         waterArrSpot -= cow.knownWater.length
     }
-    cow.waterHeading = [cow.closestWater[0],cow.closestWater[1]]
-    console.log(cow.waterHeading)
-    console.log(waterArrSpot)
+    cow.waterHeading = [cow.knownWater[waterArrSpot][0],cow.knownWater[waterArrSpot][1]]
+    // console.log(cow.waterHeading)
+    // console.log(waterArrSpot)
 }
+
+function cowPickFoodSource(cow) {
+    console.log('we are picking a food source')
+    let foodArrSpot = Math.floor(Math.random()*100);
+    while (cow.knownFood.length < foodArrSpot) {
+        foodArrSpot -= cow.knownFood.length
+    }
+    cow.foodHeading = [cow.knownFood[foodArrSpot][0],cow.knownFood[foodArrSpot][1]]
+    console.log(cow.foodHeading)
+    console.log(foodArrSpot)
+}
+
 
 function cowMoveTowardWater(cow) {
     if (!cow.wandering) {
-        const offCourseChance = Math.floor(Math.random() * 100);
+        const offCourseChance = Math.floor(Math.random() * 200);
         if (10 < offCourseChance && offCourseChance < 15) {
             cow.wandering = true;
-            cow.wanderDistance = 10;
+            cow.wanderDistance = 30;
             if (offCourseChance === 11) {
                 cow.wanderDirection = 1;
             }
@@ -492,13 +509,13 @@ function cowMoveTowardFood(cow) {
         }
         return
     }
-    if (cow.x < (cow.knownFood[0][0])) {
+    if (cow.x < (cow.foodHeading[0])) {
         moveCowRight(cow)
-    } if (cow.x > (cow.knownFood[0][0])) {
+    } if (cow.x > (cow.foodHeading[0])) {
         moveCowLeft(cow)
-    } if (cow.y < (cow.knownFood[0][1])) {
+    } if (cow.y < (cow.foodHeading[1])) {
         moveCowDown(cow)
-    } if (cow.y > (cow.knownFood[0][1])) {
+    } if (cow.y > (cow.foodHeading[1])) {
         moveCowUp(cow)
     } else {
         // console.log(`cow ${cow.cowId} is at the food`)
@@ -517,24 +534,24 @@ function update() {
         gameOver = true;
         console.log("Game Over!");
     }
-    foodAvailable += 48;
-    waterAvailable += 50;
+    foodAvailable += 100;
+    waterAvailable += 100;
     cowGroup.children.iterate(function(cow) {
-        if (cow !== undefined){
-            cow.food -= 2;
+        if (cow !== undefined) {
+            cow.food -= 4;
             cow.water -= 2;
-            cow.age++
+            cow.age++;
             if (cow.age > 50000) {
-                killCow(cow, 'being a boomer')
+                killCow(cow, 'being a boomer');
             }
             if (cow.food <= 0) {
-                killCow(cow, 'lack of food')
+                killCow(cow, 'lack of food');
             }
             if (cow.water <= 0) {
-                killCow(cow, 'thirst')
+                killCow(cow, 'thirst');
             }
-            cow.thirst = Math.floor(cow.water/1000)
-            cow.hunger = Math.floor(cow.food/1000)
+            cow.thirst = Math.floor(cow.water / 1000);
+            cow.hunger = Math.floor(cow.food / 1000);
             if (cow.drinking) {
                 if (waterAvailable > 50) {
                     cow.water += 50;
@@ -553,83 +570,87 @@ function update() {
             if (cow.thirst === 2 && !cow.drinking) {
                 if (!cow.movingToWater) {
                     if (cow.waterHeading.length === 0) {
-                        if (cow.knownWater.length ===0) {
-                            cowLookForWater(cow)
-                            console.log('looking for water')
+                        if (cow.knownWater.length === 0) {
+                            cowLookForWater(cow);
+                            console.log('looking for water');
                         }
-                        cowPickWaterSource(cow)
+                        cowPickWaterSource(cow);
                     } else {
                         cow.movingToWater = true;
                         cow.movingToFood = false;
                         cow.eating = false;
                     }
                 } else {
-                    cowMoveTowardWater(cow)
+                    cowMoveTowardWater(cow);
                 }
             } else if (cow.hunger === 2 && !cow.eating) {
                 if (!cow.movingToFood) {
-                    if (cow.knownFood.length === 0) {
-                        cowLookForFood(cow)
+                    if (cow.foodHeading.length === 0) {
+                        if (cow.knownFood.length === 0) {
+                            cowLookForFood(cow);
+                        }
+                        cowPickFoodSource(cow);
                     } else {
                         cow.movingToFood = true;
                         cow.movingToWater = false;
                         cow.drinking = false;
                     }
                 } else {
-                    cowMoveTowardFood(cow)
+                    cowMoveTowardFood(cow);
                 }
             } else {
                 if (cow.thirst <= 10 && !cow.drinking && !cow.movingToFood) {
                     if (!cow.movingToWater) {
                         if (cow.waterHeading.length === 0) {
-                            if (cow.knownWater.length ===0) {
-                                cowLookForWater(cow)
-                                console.log('looking for water')
+                            if (cow.knownWater.length === 0) {
+                                cowLookForWater(cow);
+                                console.log('looking for water');
                             }
-                            cowPickWaterSource(cow)
+                            cowPickWaterSource(cow);
                         } else {
-                        cow.eating = false;
-                        cow.movingToWater = true;
+                            cow.eating = false;
+                            cow.movingToWater = true;
                         }
                     } else {
-                        cowMoveTowardWater(cow)
+                        cowMoveTowardWater(cow);
                     }
                 } else if (cow.hunger <= 10 && !cow.eating && !cow.movingToWater) {
                     if (!cow.movingToFood) {
                         if (cow.knownFood.length === 0) {
-                            cowLookForFood(cow)
+                            cowLookForFood(cow);
                         } else {
-                        cow.false = false;
-                        cow.movingToFood = true;
+                            cowPickFoodSource(cow);
+                            cow.movingToFood = true;
                         }
                     } else {
-                        cowMoveTowardFood(cow)
+                        cowMoveTowardFood(cow);
                     }
                 }
-                
+    
                 if (cow.drinking && cow.water >= 20000) {
                     cow.drinking = false;
                     cow.waterHeading = [];
                     // console.log('cow drank their fill')
                 } else if (cow.eating && cow.food >= 20000) {
                     cow.eating = false;
+                    cow.foodHeading = [];
                     // console.log('cow is full')
                 }
-
+    
                 if (!cow.drinking && !cow.eating && !cow.movingToFood && !cow.movingToWater && 10000 < cow.age && cow.age < 80000) {
-                    const chanceToReproduce = Math.floor(Math.random()*10000)
+                    const chanceToReproduce = Math.floor(Math.random() * 10000);
                     if (chanceToReproduce < 3 && cow.children <= 2) {
-                        createCow(`${cows++}`, cow.x, cow.y)
-                        console.log(cowGroup.children.entries.length)
+                        createCow(`${cows++}`, cow.x, cow.y);
+                        console.log(cowGroup.children.entries.length);
                     } else if (chanceToReproduce < 3) {
-                        killCow(cow, 'overpopulation')
-                        console.log('WATER:', waterAvailable)
+                        killCow(cow, 'overpopulation');
+                        console.log('WATER:', waterAvailable);
                     }
                 }
             }
-            
         }
-    })
+    });
+    
     setTimeout(function() {
         game.scene.scenes[0].time.addEvent({ delay: 0, callback: update, callbackScope: this })
     }, updateInterval);
