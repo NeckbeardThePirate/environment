@@ -69,7 +69,6 @@ function create() {
                 square.setName(name);
                 square.setData(type, quantity);
                 mapGroup.add(square);
-                console.log(square)
         }
     }
     for (let i = 1; i <= initialCows; i++) {
@@ -175,6 +174,9 @@ function cowLookForFood(cow) {
 }
 
 function cowPickFoodSource(cow) {
+    if (cow.foodHeading.length === 0) {
+        cow.foodHeading = [cow.knownFood[i][0], cow.knownFood[i][1]];
+    }
     for (let i = 0; i < cow.knownFood.length; i++) {
         if (cow.foodHeading.length === 0) {
             cow.foodHeading = [cow.knownFood[i][0], cow.knownFood[i][1]];

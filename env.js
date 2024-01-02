@@ -26,9 +26,9 @@ let game = new Phaser.Game(config);
 //Paramaters or something, some guy told me I should do it
 let updateInterval = 25000 / 1;
 
-const startingCowFood = 1200;
+const startingCowFood = 16000;
 
-const startingCowWater = 1200;
+const startingCowWater = 3200;
 
 const waterUpdateLevel = 50;
 
@@ -38,13 +38,13 @@ const lightGrassThreshold = 500;
 
 const thickGrassThreshold = 5000;
 
-const defaultMovementFoodLoss = 5000;
+const defaultMovementFoodLoss = 3;
 
-const defaultMovementWaterLoss = 5000;
+const defaultMovementWaterLoss = 3;
 
-const defaultBaseFoodLoss = 5000;
+const defaultBaseFoodLoss = 2;
 
-const defaultBaseWaterLoss = 5000;
+const defaultBaseWaterLoss = 2;
 
 const defaultVelocity = 50;
 
@@ -62,13 +62,16 @@ const initialThickGrassLevel = 2000;
 
 const initialLightGrassLevel = 20;
 
+const initialCows = 30;
+
+
+let cowMap = [];
 
 // Other initializations
 
 let cowGroup;
 let cows = 0;
 let gameOver = false;
-let initialCows = 10;
 let mapGroup;
 
 
@@ -232,7 +235,7 @@ function findDistance(startX, startY, endX, endY) {
 // }
 
 function cowLookForWater(cow) {
-    console.log('looking for water');
+    // console.log('looking for water');
     //set searchDistance 500px === 5 squares
     const searchRadius = 500;
     const gridPositions = [];
@@ -244,12 +247,18 @@ function cowLookForWater(cow) {
     }
     //grab the absolute position for a set of coordinates by adding the dy and dy and the cow's xy position
     for (const { dx, dy } of gridPositions) {
-        const targetX = Math.floor(cow.x / 100) + dx;
-        const targetY = Math.floor(cow.y / 100) + dy;
+        const targetX = Math.floor(cow.x) + dx;
+        const targetY = Math.floor(cow.y) + dy;
         let square = getSquareAt(targetX, targetY);
 
-        if (square && square.name === 'water') {
-            cow.knownWater = [...cow.knownWater, [targetX, targetY]];
+        
+        if (square) {
+            cowMap.push(square.name, square.x, square.y)
+            if (square.name === 'water') {
+                cow.knownWater = [...cow.knownWater, [targetX, targetY]];
+                // console.log('waterFound')
+            }
+            
         }
     }
 
@@ -293,18 +302,12 @@ function cowMoveTowardWater(cow) {
     //check position and if they have arrived at water stop movement and set status to drinking
     const cowPosition = getSquareAt(cow.x, cow.y)
     if (cowPosition.name === 'water') {
-        console.log(`cow ${cow.cowId} is at the water`)
+        // console.log(`cow ${cow.cowId} is at the water`)
         cow.setVelocityX(0);
         cow.setVelocityY(0);
         cow.drinking = true;
         cow.waterHeading = [];
-    } else {
-        cow.knownWater = [];
-        cow.drinking = false;
-        cow.waterHeading = []
-        cow.movingToWater = false;
-        cow.isThirsty = false;
-    }
+    } 
     
     
 }
@@ -493,10 +496,12 @@ function update() {
             }
 
             //if cow needs water start the water loop, by setting the cow.isThristy flag. else move it towards the water
-            if (cow.thirst <= 10 && !cow.isHungry) {
-                if (cow.isThirsty && !cow.drinking) {
+            if (cow.thirst <= 10 && !cow.isHungry && !cow.drinking) {
+                if (cow.isThirsty) {
+                    // console.log('moving', cow.isThirsty, cow.drinking)
                     cowMoveTowardWater(cow)
                 } else {
+                    // console.log('looking', cow.isThirsty, cow.drinking)
                     cow.isThirsty = true;
                     cowLookForWater(cow);
                 }
@@ -538,9 +543,10 @@ function update() {
 
             //allow the opportunity to reproduce if they're not doing anything else
 
-            if (!cow.drinking && !cow.eating && !cow.movingToFood && !cow.movingToWater && 10000 < cow.age && cow.age < 80000) {
+            if (!cow.drinking && !cow.eating && 1000 < cow.age && cow.age < 80000) {
                 const chanceToReproduce = Math.floor(Math.random() * 10000);
-                if (chanceToReproduce < 6 && cow.children <= 2) {
+                //NEED TO CHANGE TO MORE REASONABLE NUMBERS THESE HAVE BEEN EDITED FOR TESTING PURPOSES
+                if (chanceToReproduce < 25 && cow.children <= 5) {
                     createCow(`${cows++}`, cow.x, cow.y);
                     console.log(cowGroup.children.entries.length);
                 } else if (chanceToReproduce < 3) {
