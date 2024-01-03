@@ -24,13 +24,13 @@ let game = new Phaser.Game(config);
 
 
 //Paramaters or something, some guy told me I should do it
-let updateInterval = 25000 / 1;
+const updateInterval = 25000 / 1;
 
-const startingCowFood = 16000;
+let startingCowFood = 12000;
 
-const startingCowWater = 3200;
+let startingCowWater = 16000;
 
-const waterUpdateLevel = 500;
+const waterUpdateLevel = 50;
 
 const grassUpdateLevel = 10;
 
@@ -38,11 +38,11 @@ const lightGrassThreshold = 500;
 
 const thickGrassThreshold = 5000;
 
-const defaultMovementFoodLoss = 3;
+const defaultMovementFoodLoss = 4;
 
 const defaultMovementWaterLoss = 3;
 
-const defaultBaseFoodLoss = 2;
+const defaultBaseFoodLoss = 3;
 
 const defaultBaseWaterLoss = 2;
 
@@ -60,12 +60,11 @@ const initialWaterLevel = 2000;
 
 const initialThickGrassLevel = 2000;
 
-const initialLightGrassLevel = 20;
+const initialLightGrassLevel = Phaser.Math.Between(0, 1000);
 
 const initialCows = 10;
 
 
-let cowMap = [];
 
 // Other initializations
 
@@ -146,6 +145,8 @@ function create() {
         }
         createCow(cows++, startingLocationX, startingLocationY);
     }
+    startingCowFood = 6000;
+    startingCowWater = 3500;
 }
 //set default parameters and cows
 function createCow(id, x, y) {
@@ -275,14 +276,34 @@ function cowMoveTowardWater(cow) {
     //check position and if they have arrived at water stop movement and set status to drinking
     const cowPosition = getSquareAt(cow.x, cow.y)
     if (cowPosition.name === 'water') {
-        // console.log(`cow ${cow.cowId} is at the water`)
         cow.setVelocityX(0);
         cow.setVelocityY(0);
         cow.drinking = true;
         cow.waterHeading = [];
-    } 
-    
-    
+        cow.movingToWater = false;
+    }
+
+    //HANDLE SITUATIONS  WHERE THE COW ARRIVES AND THE WATER IS ALL GONE
+
+    const destinationSquare = getSquareAt(cow.waterHeading[0], cow.waterHeading[1])
+
+    if (destinationSquare && destinationSquare.name === 'mudpit') {
+        cow.movingToWater = false;
+        cow.waterHeading = [];
+        cow.setVelocityX(0);
+        cow.setVelocityY(0);
+        cow.isThirsty = false;
+    }
+}
+
+
+//COW WANDER MECHANISM  
+
+function cowWander(cow) {
+    if (cow.wandering === false) {
+        cow.wandering = true;
+        const wanderDirection = Phaser.Math.Between(0, 4)
+    }
 }
 
 
@@ -290,10 +311,7 @@ function cowMoveTowardWater(cow) {
 
 
 
-
-
-
-//all of the food functions are similar but somewhat out of date relative to the water ones update coming
+//all of the food functions are all functionally identical to the water ones need to parameterize so it's all the same
 
 
 function cowLookForFood(cow) {
@@ -342,7 +360,8 @@ function cowPickFoodSource(cow) {
         cowMoveTowardFood(cow);
     } else {
         console.warn('No known food sources for cow: ', cow.cowId)
-        cowLookForFood(cow)
+        // cowLookForFood(cow)
+        killCow(cow, 'being blind')
     }
 }
 
@@ -361,12 +380,21 @@ function cowMoveTowardFood(cow) {
         if (cowPosition.name === 'thick_grass') {
             cow.setVelocityX(0);
             cow.setVelocityY(0);
-            // console.log(`cow ${cow.cowId} is at the food`)
             cow.movingToFood = false;
             cow.eating = true;
             cow.foodHeading = [];
             cow.knownFood = [];
             cow.foodPicked = false;
+        }
+
+        const destinationSquare = getSquareAt(cow.foodHeading[0], cow.foodHeading[1])
+    
+        if (destinationSquare.name === 'light_grass') {
+            cow.movingToFood = false;
+            cow.foodHeading = [];
+            cow.setVelocityX(0);
+            cow.setVelocityY(0);
+            cow.isHungry = false;
         }
     }
 }
@@ -436,12 +464,15 @@ function update() {
             //check death conditions
             if (cow.age > 50000) {
                 killCow(cow, 'being a boomer');
+                return
             }
             if (cow.food <= 0) {
                 killCow(cow, 'lack of food');
+                return
             }
             if (cow.water <= 0) {
                 killCow(cow, 'thirst');
+                return
             }
             //set values to make math easy for determining thirst and hunger
             cow.thirst = Math.floor(cow.water / 1000);
@@ -458,7 +489,6 @@ function update() {
                     cow.drinking = false;
                     cow.waterHeading = [];
                     cow.movingToWater = false;
-                    cow.closestWater = [];
                     cow.isThirsty = false;
                 }
             }
@@ -473,8 +503,8 @@ function update() {
                     cow.knownFood = [];
                     cow.eating = false;
                     cow.foodHeading = [];
-                    cow.foodPicked = false;
                     cow.movingToFood = false;
+                    cow.isHungry = false;
                 }
             }
 
@@ -493,32 +523,33 @@ function update() {
             //similar for food,, needs update
 
             if (cow.hunger <= 10 && !cow.eating && !cow.isThirsty && !cow.drinking) {
-                    const cowLocation = getSquareAt(cow.x, cow.y);
-                    if (cowLocation.name === 'thick_grass') {
-                        cow.eating = true;
-                        cow.movingToFood = false;
-                        cow.foodHeading = []
-                        cow.knownFood = [];
-                        cow.setVelocityX(0);
-                        cow.setVelocityY(0);
-                        return
-                    }
-                    if (!cow.movingToFood && !cow.eating) {
-                            cowLookForFood(cow);
-                            cowPickFoodSource(cow);
+                const cowLocation = getSquareAt(cow.x, cow.y);
+                if (cowLocation.name === 'thick_grass') {
+                    cow.eating = true;
+                    cow.movingToFood = false;
+                    cow.foodHeading = []
+                    cow.knownFood = [];
+                    cow.setVelocityX(0);
+                    cow.setVelocityY(0);
+                    return
+                }
+                if (!cow.movingToFood && !cow.eating) {
+                        cowLookForFood(cow);
+                        cowPickFoodSource(cow);
 
 
-                    } else {
-                        cowMoveTowardFood(cow);
-                    }
+                } else {
+                    cowMoveTowardFood(cow);
+                }
             }
             
             //check for conditions where the cow would be satisfied.
             if (cow.drinking && cow.water >= 20000) {
                 cow.isThirsty = false;
-            } else if (cow.eating && cow.food >= 30000) {
+            } else if (cow.eating && cow.food >= 20000) {
+                cow.isHungry = false;
+            }else if (cow.eating && cow.food >= 30000) {
                 cow.eating = false;
-                cow.foodHeading = [];
             }
             if (cow.drinking && cow.water >= 30000) {
                 cow.drinking = false;
@@ -529,10 +560,12 @@ function update() {
             if (!cow.drinking && !cow.eating && !cow.movingToWater && !cow.movingToFood && 1000 < cow.age && cow.age < 80000) {
                 const chanceToReproduce = Math.floor(Math.random() * 10000);
                 //NEED TO CHANGE TO MORE REASONABLE NUMBERS THESE HAVE BEEN EDITED FOR TESTING PURPOSES
-                if (chanceToReproduce < 2 && cow.children <= 5) {
+                if (chanceToReproduce < 3 && cow.children <= 5) {
                     createCow(cows++, cow.x, cow.y);
+                    cow.food -= 7500;
+                    cow.water -= 4500;
                     console.log(cowGroup.children.entries.length);
-                } else if (chanceToReproduce < 3) {
+                } else if (chanceToReproduce < 2) {
                     killCow(cow, 'overpopulation');
                 }
             }
