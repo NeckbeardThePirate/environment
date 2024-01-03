@@ -30,7 +30,7 @@ const startingCowFood = 16000;
 
 const startingCowWater = 3200;
 
-const waterUpdateLevel = 50;
+const waterUpdateLevel = 500;
 
 const grassUpdateLevel = 10;
 
@@ -62,7 +62,7 @@ const initialThickGrassLevel = 2000;
 
 const initialLightGrassLevel = 20;
 
-const initialCows = 30;
+const initialCows = 10;
 
 
 let cowMap = [];
@@ -144,7 +144,7 @@ function create() {
                 return 
             }
         }
-        createCow(`${cows++}`, startingLocationX, startingLocationY);
+        createCow(cows++, startingLocationX, startingLocationY);
     }
 }
 //set default parameters and cows
@@ -159,27 +159,18 @@ function createCow(id, x, y) {
     cow.movingToWater = false;
     cow.knownWater = [];
     cow.waterHeading = [];
-    cow.thirst = 0;
-    cow.waterPicked = false;
-    cow.closestWater = [];
     cow.isThirsty = false;
 
 
     cow.food = startingCowFood;
-    cow.isHungry = false;
-    cow.movingToFood = false;
     cow.eating = false;
-    cow.moving = false;
-    cow.hunger = 0;
-    cow.satisfied = false;
-    cow.foodHeading = [];
-    cow.foodPicked = false;
+    cow.movingToFood = false;
     cow.knownFood = [];
+    cow.foodHeading = [];
+    cow.isHungry = false;
 
     
-    cow.currentDistance = 0;
     cow.children = 0;
-    cow.wandering = false;
     cow.wanderDistance = 0;
     cow.wanderDirection = 0;
 }
@@ -220,22 +211,7 @@ function findDistance(startX, startY, endX, endY) {
     return distanceY + distanceX;
 }
 
-
-
-
-
-
-//I DON'T THINK THE BELOW SHUFFLE FUNCTION IS REALLY ALL THAT HELPFUL SO REMOVING FOR THE TIME BEING
-
-// function shuffleArray(array) {
-//     for (let i = array.length - 1; i > 0; i--) {
-//         const j = Math.floor(Math.random() * (i + 1));
-//         [array[i], array[j]] = [array[j], array[i]];
-//     }
-// }
-
 function cowLookForWater(cow) {
-    // console.log('looking for water');
     //set searchDistance 500px === 5 squares
     const searchRadius = 500;
     const gridPositions = [];
@@ -247,18 +223,15 @@ function cowLookForWater(cow) {
     }
     //grab the absolute position for a set of coordinates by adding the dy and dy and the cow's xy position
     for (const { dx, dy } of gridPositions) {
-        const targetX = Math.floor(cow.x) + dx;
-        const targetY = Math.floor(cow.y) + dy;
-        let square = getSquareAt(targetX, targetY);
-
         
-        if (square) {
-            cowMap.push(square.name, square.x, square.y)
-            if (square.name === 'water') {
-                cow.knownWater = [...cow.knownWater, [targetX, targetY]];
-                // console.log('waterFound')
-            }
-            
+        const targetX = Math.floor(cow.x) + dx;
+        
+        const targetY = Math.floor(cow.y) + dy;
+        
+        const square = getSquareAt(targetX, targetY);
+        
+        if (square && square.name === 'water') {
+            cow.knownWater = [...cow.knownWater, [targetX, targetY]];
         }
     }
 
@@ -281,7 +254,7 @@ function cowPickWaterSource(cow) {
         //set their heading to the closest set of coordinates
         cow.waterHeading = holderHeading;
         cow.movingToWater = true;
-        console.warn('Water source picked for cow:', cow.cowId, cow.waterHeading);
+        // console.warn('Water source picked for cow:', cow.cowId, cow.waterHeading);
         cowMoveTowardWater(cow);
     } else {
         console.warn('No known water sources for cow:', cow.cowId);
@@ -324,36 +297,53 @@ function cowMoveTowardWater(cow) {
 
 
 function cowLookForFood(cow) {
+
     const searchRadius = 500;
+    const gridPositions = [];
+
     for (let dx = -searchRadius; dx <= searchRadius; dx += 100) {
         for (let dy = -searchRadius; dy <= searchRadius; dy += 100) {
-            const targetX = Math.floor(cow.x / 100) + dx;
-            const targetY = Math.floor(cow.y / 100) + dy;
-            let square = getSquareAt(targetX, targetY);
-            if (square && square.name === 'thick_grass') {
-                const foodX = targetX;
-                const foodY = targetY;
-                cow.knownFood = [...cow.knownFood, [foodX, foodY]];
-            }
+
+            gridPositions.push({ dx, dy})
         }
     }
+    for( const { dx, dy } of gridPositions) {
+        
+        const targetX = Math.floor(cow.x) + dx;
+        
+        const targetY = Math.floor(cow.y) + dy;
+        
+        const square = getSquareAt(targetX, targetY);
+
+        if (square && square.name === 'thick_grass') {
+            cow.knownFood = [...cow.knownFood, [targetX, targetY]];
+        }
+    }
+
     cowPickFoodSource(cow);
 }
 
 
 function cowPickFoodSource(cow) {
-    for (let i = 0; i < cow.knownFood.length; i++) {
-        if (cow.foodHeading.length === 0) {
-            cow.foodHeading = [cow.knownFood[i][0], cow.knownFood[i][1]];
-        }
-        let currentDistance = findDistance(cow.x, cow.y, cow.foodHeading[0], cow.foodHeading[1])
-        let newDistance = findDistance(cow.x, cow.y, cow.knownFood[i][0], cow.knownFood[i][1])
-        if (newDistance < currentDistance) {
-            cow.foodHeading = [cow.knownFood[i][0], cow.knownFood[i][1]];
+    if (cow.knownFood.length > 0) {
+        let tempHeading = [cow.knownFood[0][0], cow.knownFood[0][1]]
+        let closestDistance = findDistance(cow.x, cow.y, tempHeading[0], tempHeading[1])
 
+        for(let i = 1; i < cow.knownFood.length; i++) {
+            let newDistance = findDistance(cow.x, cow.y, cow.knownFood[i][0], cow.knownFood[i][1])
+            if (newDistance < closestDistance) {
+                tempHeading = [cow.knownFood[i][0], cow.knownFood[i][1]];
+                closestDistance = newDistance;
+            }
         }
+        cow.foodHeading = tempHeading;
+        cow.movingToFood = true;
+
+        cowMoveTowardFood(cow);
+    } else {
+        console.warn('No known food sources for cow: ', cow.cowId)
+        cowLookForFood(cow)
     }
-    cow.movingToFood = true;
 }
 
 
@@ -377,13 +367,6 @@ function cowMoveTowardFood(cow) {
             cow.foodHeading = [];
             cow.knownFood = [];
             cow.foodPicked = false;
-        } else {
-            // console.log(`cow ${cow.cowId} arrived and there was no food at `, cow.x, cow.y)
-            cow.knownFood = [];
-            cow.eating = false;
-            cow.foodHeading = [];
-            cow.foodPicked = false;
-            cow.movingToFood = false;
         }
     }
 }
@@ -428,8 +411,8 @@ function update() {
             }
         } else if (square.name === 'light_grass') {
             //trying it out with a random value, don't hate me for not parameterizing this one
-            let gainAmount = Phaser.Math.Between(0, 3)
-            square.data.list.grass += gainAmount;
+            let gainAmount = Phaser.Math.Between(0, 1000)
+            square.data.list.grass += Math.floor(gainAmount/200);
             if (square.data.list.grass > thickGrassThreshold) {
                 square.setName('thick_grass');
                 square.fillColor = 19712;
@@ -543,15 +526,14 @@ function update() {
 
             //allow the opportunity to reproduce if they're not doing anything else
 
-            if (!cow.drinking && !cow.eating && 1000 < cow.age && cow.age < 80000) {
+            if (!cow.drinking && !cow.eating && !cow.movingToWater && !cow.movingToFood && 1000 < cow.age && cow.age < 80000) {
                 const chanceToReproduce = Math.floor(Math.random() * 10000);
                 //NEED TO CHANGE TO MORE REASONABLE NUMBERS THESE HAVE BEEN EDITED FOR TESTING PURPOSES
-                if (chanceToReproduce < 25 && cow.children <= 5) {
-                    createCow(`${cows++}`, cow.x, cow.y);
+                if (chanceToReproduce < 2 && cow.children <= 5) {
+                    createCow(cows++, cow.x, cow.y);
                     console.log(cowGroup.children.entries.length);
                 } else if (chanceToReproduce < 3) {
                     killCow(cow, 'overpopulation');
-                    console.log('WATER:', waterAvailable);
                 }
             }
         }
