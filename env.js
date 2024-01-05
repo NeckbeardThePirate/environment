@@ -26,9 +26,9 @@ let game = new Phaser.Game(config);
 //Paramaters or something, some guy told me I should do it
 const updateInterval = 25000 / 1;
 
-let startingWolfFood = 10000;
+let startingWolfFood = 1000;
 
-let startingWolfWater = 10000;
+let startingWolfWater = 100000;
 
 let startingCowFood = 6000;
 
@@ -205,14 +205,14 @@ function createWolf(id, x, y) {
     wolf.id = id;
     wolf.age = 0;
 
-    wolf.water = 10000;
+    wolf.water = startingWolfWater;
     wolf.drinking = false;
     wolf.movingToWater = false;
     wolf.knownWater = [];
     wolf.waterHeading = [];
     wolf.thirsty = false;
 
-    wolf.food = 1000000;
+    wolf.food = startingWolfFood;
     wolf.eating = false;
     wolf.chasingFood = false;
     wolf.knownPrey = [];
@@ -232,6 +232,8 @@ function createWolf(id, x, y) {
     wolf.runFoodLoss = 20;
     wolf.walkWaterLoss = 1;
     wolf.runWaterLoss = 8;
+    wolf.preyId = null;
+    wolf.range = 10;
 }
 
 function createCow(id, x, y) {
@@ -268,6 +270,7 @@ function createCow(id, x, y) {
     cow.walkWaterLoss = 2;
     cow.runWaterLoss = 10;
     cow.runFoodLoss = 10;
+    cow.beingHunted = false;
 }
 
 function killAnimal(animal, causeOfDeath) {
@@ -695,6 +698,115 @@ function cowMoveTowardFood(cow) {
 
 
 
+function lookForPrey(predator) {
+    const preyNearby = cowGroup.getChildren().filter(prey => {
+        const areaX = predator.x - predator.visionRange;
+        const areaY = predator.y - predator.visionRange;
+        const areaWidth = predator.visionRange * 2;
+        const areaHeight = predator.visionRange * 2;
+
+        const isClose = areaX <= prey.x && prey.x <= areaX + areaWidth && areaY <= prey.y && prey.y <= areaY + areaHeight;
+        return isClose            
+    });
+
+    let closestDistance = findDistance(predator.x, predator.y, preyNearby[0].x, preyNearby[0].y)
+    let preyId = preyNearby[0].id;
+    console.warn(preyNearby)
+    for (const prey of preyNearby) {
+        tempDistance = findDistance(predator.x, predator.y, prey.x, prey.y)
+        if (tempDistance < closestDistance) {
+            closestDistance = tempDistance;
+            preyId = prey.id;
+        }
+    }
+    console.log(closestDistance, preyId)
+    predator.preyId = preyId;
+
+    predatorIdentifyPrey(predator)
+    // gameOver = true;
+}
+
+function predatorIdentifyPrey(predator) {
+    let preyFound = false;
+    let preyNum = 0;
+    while (!preyFound) {
+        if (cowGroup.children.entries[preyNum].id === predator.preyId) {
+            const prey = cowGroup.children.entries[preyNum]
+            preyFound = true;
+            prey.beingHunted = false;
+            predatorChasePrey(predator, prey)
+        }
+        preyNum++
+        if (preyNum > cowGroup.children.entries.length) {
+            wolf.hunting = false;
+            wolf.huntDirection = 0;
+            wolf.preyId = null;
+            wolf.setVelocityX(0)
+            wolf.setVelocityY(0)
+            wolf.hungry = false;
+            wolf.chasingFood = false;
+            return
+        }
+    }
+}
+
+function predatorChasePrey(predator, prey) {
+    if (predator.x < prey.x) {
+        animalRunRight(predator)
+    } if (prey.x < predator.x) {
+        animalRunLeft(predator)
+    } if (predator.y < prey.y) {
+        animalRunDown(predator)
+    } if (prey.y < predator.y) {
+        animalRunUp(predator)
+    }
+    const inRange = isPreyInRange(predator, prey)
+    if (inRange) {
+        predator.setVelocityX(0)
+        predator.setVelocityY(0)
+        prey.setVelocityY(0)
+        prey.setVelocityX(0)
+        gameOver = true;
+        console.warn('caught the prey')
+    }
+}
+
+function animalRunRight(animal) {
+    animal.setVelocityX(animal.runSpeed)
+    animal.food -= animal.runFoodLoss;
+    animal.water -= animal.runWaterLoss;
+}
+
+function animalRunLeft(animal) {
+    animal.setVelocityX(-animal.runSpeed)
+    animal.food -= animal.runFoodLoss;
+    animal.water -= animal.runWaterLoss;
+}
+function animalRunUp(animal) {
+    animal.setVelocityY(-animal.runSpeed)
+    animal.food -= animal.runFoodLoss;
+    animal.water -= animal.runWaterLoss;
+}
+function animalRunDown(animal) {
+    animal.setVelocityY(animal.runSpeed)
+    animal.food -= animal.runFoodLoss;
+    animal.water -= animal.runWaterLoss;
+}
+
+function isPreyInRange(predator, prey) {
+    const  areaX = predator.x - predator.range;
+    const areaY = predator.y - predator.range;
+    const areaWidth = predator.range * 2;
+    const areaHeight = predator.range * 2;
+
+    const isInrange = areaX <= prey.x && prey.x <= areaX + areaWidth && areaY <= prey.y && prey.y <= areaY + areaHeight;
+    return isInrange
+
+}
+
+
+
+
 //main game cycle
 
 
@@ -753,8 +865,9 @@ function update() {
             }
 
             if (wolf.food <= 0) {
-                killAnimal(wolf, 'rumbly tummy');
-                return
+                // killAnimal(wolf, 'rumbly tummy');
+                // return
+                wolf.food += 6000;
             }
 
             if (wolf.water <= 0) {
@@ -778,7 +891,7 @@ function update() {
                 }
             }
 
-            if (wolf.thirst <= 10 && !wolf.isHungry && !wolf.drinking && !wolf.hunting) {
+            if (wolf.thirst <= 10 && !wolf.hungry && !wolf.drinking && !wolf.hunting) {
                 if (wolf.thirsty) {
                     animalMoveTowardWater(wolf)
                 } else {
@@ -786,6 +899,16 @@ function update() {
                     animalLookForWater(wolf)
                 }
             }
+
+            if (wolf.hunger <= 10 && !wolf.hungry && !wolf.eating && !wolf.drinking && !wolf.movingToWater) {
+                if (!wolf.hunting) {
+                    lookForPrey(wolf)
+                } else {
+                    predatorChasePrey(wolf)
+                }
+            }
+
+
         }
     })
 
@@ -870,7 +993,6 @@ function update() {
                 }
                 if (!cow.movingToFood && !cow.eating) {
                         cowLookForFood(cow);
-                        cowPickFoodSource(cow);
 
 
                 } else {
