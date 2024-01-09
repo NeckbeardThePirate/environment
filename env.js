@@ -11,7 +11,7 @@ let config = {
         default: 'arcade',
         arcade: {
             gravity: { y: 0 },
-            debug: true
+            debug: false
         }
     },
     fps: {
@@ -26,17 +26,17 @@ let game = new Phaser.Game(config);
 //Paramaters or something, some guy told me I should do it
 const updateInterval = 25000 / 1;
 
-let startingWolfFood = 1000;
+let startingWolfFood = 12500;
 
 let startingWolfWater = 100000;
 
-let startingCowFood = 6000;
+let startingCowFood = 12000;
 
 let startingCowWater = 15000;
 
 const waterUpdateLevel = 50;
 
-const grassUpdateLevel = 10;
+const grassUpdateLevel = 7;
 
 const lightGrassThreshold = 500;
 
@@ -50,15 +50,17 @@ const defaultWolfMovementFoodLoss = 1;
 
 const defaultWolfMovementWaterLoss = 1;
 
-const defaultWolfRunWaterLoss = 10;
+const defaultWolfRunWaterLoss = 8;
 
-const defaultWolfRunFoodLoss = 10;
+const defaultWolfRunFoodLoss = 8;
 
 const wolfWalkSpeed = 50;
 
 const wolfRunSpeed = 200;
 
-const cowRunSpeed = 180;
+const cowRunSpeed = 170;
+
+const cowWalkSpeed = 50;
 
 const defaultMovementFoodLoss = 4;
 
@@ -78,13 +80,13 @@ const defaultCowFoodGain = 50;
 
 const defaultCowWaterGain = 50;
 
-const initialWaterLevel = 2000;
+const initialWaterLevel = 20000;
 
-const initialThickGrassLevel = 2000;
+const initialThickGrassLevel = 20000;
 
 const initialLightGrassLevel = Phaser.Math.Between(0, 1000);
 
-const initialCows = 12;
+const initialCows = 9;
 
 const initialWolves = 1;
 
@@ -95,6 +97,7 @@ let cowGroup;
 let cows = 0;
 let gameOver = false;
 let mapGroup;
+let predatorLocations = [];
 
 
 function preload() {
@@ -218,16 +221,16 @@ function createWolf(id, x, y) {
     wolf.knownPrey = [];
     wolf.foodHeading = [];
     wolf.hungry = false;
+    wolf.hunting = false;
 
     wolf.hasChildren = false;
     wolf.cubs = 0;
-    wolf.hunting = false;
     wolf.huntDirection = 0;
     wolf.huntDistance = 0;
     wolf.species = 'wolf'
     wolf.visionRange = 500;
-    wolf.walkSpeed = 50;
-    wolf.runSpeed = 200;
+    wolf.walkSpeed = wolfWalkSpeed;
+    wolf.runSpeed = wolfRunSpeed;
     wolf.walkFoodLoss = 1;
     wolf.runFoodLoss = 20;
     wolf.walkWaterLoss = 1;
@@ -264,13 +267,16 @@ function createCow(id, x, y) {
     cow.wanderDirection = 0;
     cow.species = 'cow'
     cow.visionRange = 500;
-    cow.walkSpeed = 50;
-    cow.runSpeed = 180;
+    cow.walkSpeed = cowWalkSpeed;
+    cow.runSpeed = cowRunSpeed;
     cow.walkFoodLoss = 2;
     cow.walkWaterLoss = 2;
-    cow.runWaterLoss = 10;
-    cow.runFoodLoss = 10;
+    cow.runWaterLoss = 20;
+    cow.runFoodLoss = 20;
     cow.beingHunted = false;
+    cow.isFleeing = false;
+    cow.predatorID = null;
+    cow.corpse = false;
 }
 
 function killAnimal(animal, causeOfDeath) {
@@ -699,6 +705,8 @@ function cowMoveTowardFood(cow) {
 
 
 function lookForPrey(predator) {
+    predator.hunting = true;
+    predator.knownPrey = [];
     const preyNearby = cowGroup.getChildren().filter(prey => {
         const areaX = predator.x - predator.visionRange;
         const areaY = predator.y - predator.visionRange;
@@ -708,49 +716,58 @@ function lookForPrey(predator) {
         const isClose = areaX <= prey.x && prey.x <= areaX + areaWidth && areaY <= prey.y && prey.y <= areaY + areaHeight;
         return isClose            
     });
-
-    let closestDistance = findDistance(predator.x, predator.y, preyNearby[0].x, preyNearby[0].y)
-    let preyId = preyNearby[0].id;
-    console.warn(preyNearby)
-    for (const prey of preyNearby) {
-        tempDistance = findDistance(predator.x, predator.y, prey.x, prey.y)
-        if (tempDistance < closestDistance) {
-            closestDistance = tempDistance;
-            preyId = prey.id;
+    if (preyNearby.length > 0) {
+        let closestDistance = findDistance(predator.x, predator.y, preyNearby[0].x, preyNearby[0].y)
+        let preyId = preyNearby[0].id;
+        // console.warn(preyNearby)
+        for (const prey of preyNearby) {
+            tempDistance = findDistance(predator.x, predator.y, prey.x, prey.y)
+            if (tempDistance < closestDistance) {
+                closestDistance = tempDistance;
+                preyId = prey.id;
+            }
         }
-    }
-    console.log(closestDistance, preyId)
-    predator.preyId = preyId;
+        // console.log(closestDistance, preyId)
+        predator.preyId = preyId;
 
-    predatorIdentifyPrey(predator)
-    // gameOver = true;
+        predatorIdentifyPrey(predator)
+        // gameOver = true;
+    }
 }
 
 function predatorIdentifyPrey(predator) {
     let preyFound = false;
     let preyNum = 0;
     while (!preyFound) {
-        if (cowGroup.children.entries[preyNum].id === predator.preyId) {
+        if (cowGroup.children.entries[preyNum] && cowGroup.children.entries[preyNum].id === predator.preyId) {
             const prey = cowGroup.children.entries[preyNum]
             preyFound = true;
-            prey.beingHunted = false;
+            prey.beingHunted = true;
+            prey.predatorId = predator.id;
             predatorChasePrey(predator, prey)
         }
         preyNum++
         if (preyNum > cowGroup.children.entries.length) {
-            wolf.hunting = false;
-            wolf.huntDirection = 0;
-            wolf.preyId = null;
-            wolf.setVelocityX(0)
-            wolf.setVelocityY(0)
-            wolf.hungry = false;
-            wolf.chasingFood = false;
+            predator.hunting = false;
+            predator.huntDirection = 0;
+            // predator.preyId = null;
+            predator.setVelocityX(0)
+            predator.setVelocityY(0)
+            predator.hungry = false;
+            predator.chasingFood = false;
             return
         }
     }
+    
 }
 
 function predatorChasePrey(predator, prey) {
+    const predatorGiveUpChance = Math.floor(Phaser.Math.Between(0,1000))
+    if (predatorGiveUpChance === 0) {
+        predator.chasingFood = false;
+        predator.hunting = false;
+        return
+    }
     if (predator.x < prey.x) {
         animalRunRight(predator)
     } if (prey.x < predator.x) {
@@ -766,8 +783,16 @@ function predatorChasePrey(predator, prey) {
         predator.setVelocityY(0)
         prey.setVelocityY(0)
         prey.setVelocityX(0)
-        gameOver = true;
+        prey.corpse = true;
+        // gameOver = true;
+        predator.food += 8000;
+        killAnimal(prey, 'caught by wolf')
         console.warn('caught the prey')
+        predator.hunting = false;
+        console.log(predator.hunting)
+        predator.chasingFood = false;
+        predator.knownPrey = [];
+        predator.hungry = false;
     }
 }
 
@@ -805,7 +830,111 @@ function isPreyInRange(predator, prey) {
 }
 
 
+function preyFleePredator(prey) {
+    if (!prey.isFleeing && prey.food >= 100 && prey.water >= 100) {
+        prey.isFleeing = true;
+        prey.drinking = false;
+        prey.movingToWater = false;
+        prey.knownWater = [];
+        prey.waterHeading = [];
+        prey.thirst = false;
+        prey.eating = false;
+        prey.movingToFood = false;
+        prey.knownFood = [];
+        prey.foodHeading = [];
+        prey.isHungry = false;
+    }
+    if (prey.food <= 100 || prey.water <= 100) {
+        prey.setVelocityX(0)
+        prey.setVelocityY(0)
+        prey.isFleeing = false;
+        return
+    }
+    let predator = null;  // Initialize the variable to null or any default value
 
+    wolfGroup.children.iterate(each => {
+        if (each.id === prey.predatorId) {
+            predator = each;
+            return false;  // This breaks out of the iteration
+        }
+    });
+        // console.warn(predator.id)
+    preyRun(predator.x, predator.y, prey)
+}
+
+
+function preyRun(predatorX, predatorY, prey) {
+    // if (prey.swerving) {
+    //     if (prey.swerveDirection === 0) {
+
+    //     }
+    //     if (prey.swerveDirection === 1) {
+            
+    //     }
+    //     if (prey.swerveDirection === 2) {
+            
+    //     }
+    //     if (prey.swerveDirection === 3) {
+            
+    //     }
+    // }
+    if (predatorX < prey.x) {
+        if (930 > prey.x) {
+            animalRunRight(prey)
+        } else {
+            animalRunLeft(prey)
+        }
+        //need to add boundary contingencies
+    } else if (prey.x < predatorX) {
+        //need to add boundary contingencies
+        if (50 < prey.x) {
+            animalRunLeft(prey)
+        } else {
+            animalRunRight(prey)
+        }
+    }
+    if (predatorY < prey.y) {
+        if (950 < prey.y) {
+            animalRunUp(prey)
+        } else {
+            animalRunDown(prey)
+        }
+        // animalRunDown(prey)
+    } else if (prey.y < predatorY) {
+        //need to add boundary contingencies
+        if (50 > prey.y) {
+            animalRunDown(prey)
+        } else {
+            animalRunUp(prey)
+        }
+
+    }
+}
+
+
+
+function preyIdentifyNearbyPredators(prey) {
+    let predatorsNearby = false;
+    for(let i = 0; i < predatorLocations.length; i++) {
+        if ((predatorLocations[i][0] - 100) < prey.x && prey.x < (predatorLocations[i][0] + 100) && (predatorLocations[i][1] - 100) < prey.y && prey.y < (predatorLocations[i][1] + 100)) {
+            console.log('predator nearby');
+            predatorsNearby = true;
+            preyRun(predatorLocations[i][0], predatorLocations[i][1], prey)
+        }
+    }
+    if (!predatorsNearby) {
+        // prey.setVelocityX(0)
+        // prey.setVelocityY(0)
+        
+    } else {
+        // preyRun(predatorLocations[i][0], predatorLocations[i][1], prey)
+    }
+    return predatorsNearby
+}
+
+// function preyFleeNearbyPredators(prey) {
+
+// }
 
 //main game cycle
 
@@ -860,17 +989,20 @@ function update() {
             wolf.water -= defaultWolfWaterLoss;
             wolf.age++;
             if (wolf.age > 20000) {
+                predatorLocations.shift()
                 killAnimal(wolf, 'being a boomer');
                 return
             }
 
             if (wolf.food <= 0) {
-                // killAnimal(wolf, 'rumbly tummy');
-                // return
-                wolf.food += 6000;
+                predatorLocations.shift()
+                killAnimal(wolf, 'rumbly tummy');
+                return
+                // wolf.food += 6000;
             }
 
             if (wolf.water <= 0) {
+                predatorLocations.shift()
                 killAnimal(wolf, 'thirst');
                 return
             }
@@ -900,20 +1032,29 @@ function update() {
                 }
             }
 
-            if (wolf.hunger <= 10 && !wolf.hungry && !wolf.eating && !wolf.drinking && !wolf.movingToWater) {
+            if (wolf.hunger <= 20 && !wolf.hungry && !wolf.eating && !wolf.drinking && !wolf.movingToWater) {
                 if (!wolf.hunting) {
                     lookForPrey(wolf)
                 } else {
-                    predatorChasePrey(wolf)
+                    predatorIdentifyPrey(wolf)
                 }
             }
-
+            predatorLocations.shift()
+            predatorLocations.push([wolf.x, wolf.y])
+            if (!wolf.drinking && !wolf.eating && !wolf.movingToWater && !wolf.movingToFood && !wolf.hunting) {
+                const chanceToReproduce = Phaser.Math.Between(0, 800)
+                if (chanceToReproduce === 0) {
+                    createWolf(wolves++, wolf.x, wolf.y)
+                    wolf.food -= 7000;
+                    wolf.water -= 5000;
+                }
+            }
 
         }
     })
 
     cowGroup.children.iterate(function(cow) {
-        if (cow !== undefined) {
+        if (cow !== undefined && !cow.corpse) {
             //update cow food and water levels
             cow.food -= defaultBaseFoodLoss;
             cow.water -= defaultBaseWaterLoss;
@@ -932,6 +1073,15 @@ function update() {
                 killAnimal(cow, 'thirst');
                 return
             }
+            const predatorsNearby = preyIdentifyNearbyPredators(cow)
+            if (predatorsNearby) {
+                return
+            }
+            // if (cow.beingHunted) {
+            //     // console.log(`${cow.id} is being hunted`)
+            //     preyFleePredator(cow)
+            //     return
+            // }
             //set values to make math easy for determining thirst and hunger
             cow.thirst = Math.floor(cow.water / 1000);
             cow.hunger = Math.floor(cow.food / 1000);
@@ -1065,10 +1215,11 @@ function update() {
 
             //allow the opportunity to reproduce if they're not doing anything else
 
-            if (!cow.drinking && !cow.eating && !cow.movingToWater && !cow.movingToFood && 1000 < cow.age && cow.age < 80000) {
+            if (!cow.drinking && !cow.eating && !cow.movingToWater && !cow.movingToFood && 100 < cow.age && cow.age < 80000) {
                 const chanceToReproduce = Math.floor(Math.random() * 10000);
                 //NEED TO CHANGE TO MORE REASONABLE NUMBERS THESE HAVE BEEN EDITED FOR TESTING PURPOSES
-                if (chanceToReproduce < 3 && cow.children <= 5) {
+                if (chanceToReproduce < 5 && cow.children <= 5) {
+                    createCow(cows++, cow.x, cow.y);
                     createCow(cows++, cow.x, cow.y);
                     cow.food -= 7500;
                     cow.water -= 4500;
